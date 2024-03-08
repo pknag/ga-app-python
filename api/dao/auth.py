@@ -42,6 +42,7 @@ class AuthDAO:
             email=email, encrypted=encrypted, name=name # <2>
             ).single() # <3>
 
+        # catch constraint exception for unique email address
         try:
             with self.driver.session() as session:
                 result = session.execute_write(create_user, email, encrypted, name)
