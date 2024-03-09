@@ -58,6 +58,14 @@ def create_app(test_config=None):
     # JWT
     jwt = JWTManager(app)
 
+    # to make current_user from jwt-extended work
+    @jwt.user_lookup_loader
+    def user_lookup_callback(_jwt_header, jwt_data):
+        # identity = jwt_data.get("sub") # returns the userId
+        identity = jwt_data # dict contains user id, sub, etc
+        return identity
+
+
     CORS(app, 
         resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}}
     )

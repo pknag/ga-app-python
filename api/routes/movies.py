@@ -6,10 +6,24 @@ from api.dao.ratings import RatingDAO
 
 movie_routes = Blueprint("movies", __name__, url_prefix="/api/movies")
 
-# tag::list[]
+# For debugging flask stuff
+from pprint import pprint, pformat
+import sys
+from flask_jwt_extended import get_jwt
+from flask_jwt_extended import get_jwt_identity
+
+
 @movie_routes.get('/')
 @jwt_required(optional=True)
 def get_movies():
+    # print request details for debugging
+    # current_app.logger.debug("get_movies")
+    # current_app.logger.debug("Request Args %s", request.args)
+    # current_app.logger.debug("Request Headers %s", request.headers)
+    # current_app.logger.debug("JWT %s", get_jwt())
+    # current_app.logger.debug("JWT identity %s", get_jwt_identity())
+    # current_app.logger.debug("current user %s", current_user)
+
     # Extract pagination values from the request
     sort = request.args.get("sort", "title")
     order = request.args.get("order", "ASC")
@@ -27,7 +41,6 @@ def get_movies():
 
     # Return as JSON
     return jsonify(output)
-# end::list[]
 
 
 @movie_routes.get('/<movie_id>')
