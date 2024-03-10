@@ -19,11 +19,14 @@ def get_index():
 @genre_routes.get('/<name>/')
 def get_genre(name):
     # Create the DAO
+    current_app.logger.debug("Getting genre: %s", name)
+
     dao = GenreDAO(current_app.driver)
 
     # Get the Genre
     output = dao.find(name)
 
+    current_app.logger.debug("Genre output: %s", output)
     return jsonify(output)
 
 @genre_routes.get('/<name>/movies')
