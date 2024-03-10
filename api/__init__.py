@@ -81,6 +81,7 @@ def create_app(test_config=None):
     # Serve all other routes as static
     @app.route('/', methods=['GET'])
     def index():
+        app.logger.debug("Default: index.html")
         return send_from_directory(static_folder, 'index.html')
 
     @app.errorhandler(404)
