@@ -22,18 +22,24 @@ class MovieDAO:
     def all(self, sort, order, limit=6, skip=0, user_id=None):
         # Define the Unit of Work
         def get_movies(tx, sort, order, limit, skip, user_id):
+            # Get User favorites as a list of tmdbId
+            favorites = self.get_user_favorites(tx, user_id)
+
             # Define the cypher statement
             cypher = """
                 MATCH (m:Movie)
                 WHERE m.`{0}` IS NOT NULL
-                RETURN m {{ .* }} AS movie
+                RETURN m {{ 
+                       .*, 
+                       favorite: m.tmdbId IN $favorites               
+                }} AS movie
                 ORDER BY m.`{0}` {1}
                 SKIP $skip
                 LIMIT $limit
             """.format(sort, order)
 
             # Run the statement within the transaction passed as the first argument
-            result = tx.run(cypher, limit=limit, skip=skip, user_id=user_id)
+            result = tx.run(cypher, limit=limit, skip=skip, user_id=user_id, favorites=favorites)
 
             # Extract a list of Movies from the Result
             return [row.value("movie") for row in result]
@@ -138,4 +144,13 @@ class MovieDAO:
     the user has added to their 'My Favorites' list.
     """
     def get_user_favorites(self, tx, user_id):
-        return []
+        if user_id == None:
+            return []
+
+        result = tx.run("""
+            MATCH (u:User {userId: $userId})-[:HAS_FAVORITE]->(m)
+            RETURN m.tmdbId AS id
+        """, userId=user_id)
+
+        return [ record.get("id") for record in result ]
+
