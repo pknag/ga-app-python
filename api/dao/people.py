@@ -49,16 +49,48 @@ class PeopleDAO:
     """
 
     def find_by_id(self, id):
-        # TODO: Find a user by their ID
+         # Find a user by their ID
+        def get_person(tx, id):
+            row = tx.run("""
+                MATCH (p:Person {tmdbId: $id})
+                RETURN p {
+                    .*,
+                    actedCount: count { (p)-[:ACTED_IN]->() },
+                    directedCount: count { (p)-[:DIRECTED]->() }
+                } AS person
+            """, id=id).single()
 
-        return pacino
+            if row == None:
+                raise NotFoundException()
 
+            return row.get("person")
+
+        with self.driver.session() as session:
+            return session.execute_read(get_person, id)
 
     """
     Get a list of similar people to a Person, ordered by their similarity score
     in descending order.
     """
     def get_similar_people(self, id, limit = 6, skip = 0):
-        # TODO: Get a list of similar people to the person by their id
+        # Get a list of similar people to the person by their id
+        def get_similar_people(tx, id, skip, limit):
+            result = tx.run("""
+                MATCH (:Person {tmdbId: $id})-[:ACTED_IN|DIRECTED]->(m)<-[r:ACTED_IN|DIRECTED]-(p)
+                WITH p, collect(m {.tmdbId, .title, type: type(r)}) AS inCommon
+                RETURN p {
+                    .*,
+                    actedCount: count { (p)-[:ACTED_IN]->() },
+                    directedCount: count { (p)-[:DIRECTED]->() },
+                    inCommon: inCommon
+                } AS person
+                ORDER BY size(person.inCommon) DESC
+                SKIP $skip
+                LIMIT $limit
+            """, id=id, skip=skip, limit=limit)
 
-        return people[skip:limit]
+            return [ row.get("person") for row in result ]
+
+        with self.driver.session() as session:
+            return session.execute_read(get_similar_people, id, skip, limit)
+
