@@ -22,6 +22,9 @@ from .routes.genres import genre_routes
 from .routes.people import people_routes
 from .routes.status import status_routes
 
+# json stuff
+from .utils.json import NeoJsonProvider
+
 def create_app(test_config=None):
     # Create and configure app
     static_folder = os.path.join(os.path.dirname(__file__), '..', 'public')
@@ -65,7 +68,10 @@ def create_app(test_config=None):
         identity = jwt_data # dict contains user id, sub, etc
         return identity
 
+    # Json provider to take care of neo4j time objects
+    app.json = NeoJsonProvider(app)
 
+    # CORS
     CORS(app, 
         resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000"]}}
     )

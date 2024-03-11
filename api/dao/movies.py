@@ -3,6 +3,9 @@ from api.data import popular, goodfellas
 from api.exceptions.notfound import NotFoundException
 from api.data import popular
 
+# need for converting datetime
+import json
+
 class MovieDAO:
     """
     The constructor expects an instance of the Neo4j Driver, which will be
@@ -166,10 +169,38 @@ class MovieDAO:
     signify whether the user has added the movie to their "My Favorites" list.
     """
     def find_by_id(self, id, user_id=None):
-        # TODO: Find a movie by its ID
-        # MATCH (m:Movie {tmdbId: $id})
+        # Find a movie by its ID
+        def find_movie_by_id(tx, id, user_id = None):
+            favorites = self.get_user_favorites(tx, user_id)
 
-        return goodfellas
+            cypher = """
+            MATCH (m:Movie {tmdbId: $id})
+            RETURN m {
+                .*,
+                actors: [ (a)-[r:ACTED_IN]->(m) | a { .*, role: r.role } ],
+                directors: [ (d)-[:DIRECTED]->(m) | d { .* } ],
+                genres: [ (m)-[:IN_GENRE]->(g) | g { .name }],
+                ratingCount: count{ (m)<-[:RATED]-() },
+                favorite: m.tmdbId IN $favorites
+            } AS movie
+            LIMIT 1
+            """
+
+            first = tx.run(cypher, id=id, favorites=favorites).single()
+
+            if first == None:
+                raise NotFoundException()
+
+            result = first.get("movie")
+
+            # convert neo4j.time.Date to string, so it can be serialized
+            # result = json.dumps(result, indent = 4, sort_keys = True, default = str)
+            # result = json.loads(result)
+
+            return result
+
+        with self.driver.session() as session:
+            return session.execute_read(find_movie_by_id, id, user_id)
 
     """
     This method should return a paginated list of similar movies to the Movie with the
@@ -185,9 +216,31 @@ class MovieDAO:
     signify whether the user has added the movie to their "My Favorites" list.
     """
     def get_similar_movies(self, id, limit=6, skip=0, user_id=None):
-        # TODO: Get similar movies from Neo4j
+        # Get similar movies
+        def find_similar_movies(tx, id, limit, skip, user_id):
+            favorites = self.get_user_favorites(tx, user_id)
 
-        return popular[skip:limit]
+            cypher = """
+            MATCH (:Movie {tmdbId: $id})-[:IN_GENRE|ACTED_IN|DIRECTED]->()<-[:IN_GENRE|ACTED_IN|DIRECTED]-(m)
+            WHERE m.imdbRating IS NOT NULL
+            WITH m, count(*) AS inCommon
+            WITH m, inCommon, m.imdbRating * inCommon AS score
+            ORDER BY score DESC
+            SKIP $skip
+            LIMIT $limit
+            RETURN m {
+                .*,
+                score: score,
+                favorite: m.tmdbId IN $favorites
+            } AS movie
+            """
+
+            result = tx.run(cypher, id=id, limit=limit, skip=skip, favorites=favorites)
+
+            return [ row.get("movie") for row in result ]
+
+        with self.driver.session() as session:
+            return session.execute_read(find_similar_movies, id, limit, skip, user_id)
 
 
     """
