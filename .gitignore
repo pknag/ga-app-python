@@ -15,3 +15,9 @@ build/
 neoflix/
 .DS_Store
 .env
+
+# editor files
+
+*~
+\#*
+.\#*
